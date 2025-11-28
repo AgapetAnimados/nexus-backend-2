@@ -174,3 +174,70 @@ const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
   console.log(`🚀 Servidor corriendo en puerto ${PORT}`);
 });
+import express from 'express';
+import cors from 'cors';
+import bodyParser from 'body-parser';
+// import { pool } from './db.js';  // si usás Postgres
+
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+app.use(cors());
+app.use(bodyParser.json());
+
+// ✅ Para saber que el servidor arrancó
+console.log('🚀 Nexus backend iniciado…');
+
+// Ruta raíz de prueba
+app.get('/', (req, res) => {
+  res.json({ status: 'ok', message: 'Nexus backend activo 💌' });
+});
+
+// ✅ Webhook que recibe n8n
+app.post('/webhook/whatsapp', async (req, res) => {
+  try {
+    const { phone, message } = req.body;
+
+    // ✅ Log del body que llega
+    console.log('📩 Payload recibido en /webhook/whatsapp:', req.body);
+
+    if (!phone || !message) {
+      return res
+        .status(400)
+        .json({ status: 'error', message: 'Faltan campos: phone o message' });
+    }
+
+    // ⛔ Si aquí tenés lógica con DB, por ahora podés comentarla para probar:
+    /*
+    const insertQuery = `
+      INSERT INTO mensajes_whatsapp (phone, message)
+      VALUES ($1, $2)
+      RETURNING id;
+    `;
+    const result = await pool.query(insertQuery, [phone, message]);
+    console.log('✅ Mensaje guardado con id:', result.rows[0].id);
+    */
+
+    // ✅ Respuesta de prueba para comprobar que todo fluye
+    return res.json({
+      status: 'ok',
+      message: 'Mensaje recibido en Nexus 🧠',
+      data: { phone, message },
+    });
+
+  } catch (error) {
+    // ✅ Log completo del error para verlo en Render
+    console.error('❌ Error en /webhook/whatsapp:', error);
+
+    // 👇 TEMPORALMENTE mandamos el mensaje real del error para depurar
+    return res.status(500).json({
+      status: 'error',
+      message: error.message,      // antes estaba 'Error interno'
+      stack: error.stack,          // si quieres verlo también en n8n
+    });
+  }
+});
+
+app.listen(PORT, () => {
+  console.log(`🌐 Servidor escuchando en el puerto ${PORT}`);
+});
