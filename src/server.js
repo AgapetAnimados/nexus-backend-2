@@ -14,9 +14,10 @@ const pool = new Pool({
   ssl: { rejectUnauthorized: false },
 });
 
-// Crear tabla si no existe
+// Crear tabla si no existe + asegurar columna sender
 async function initDB() {
   try {
+    // Crear tabla si no existe
     await pool.query(`
       CREATE TABLE IF NOT EXISTS whatsapp_messages (
         id SERIAL PRIMARY KEY,
@@ -25,9 +26,16 @@ async function initDB() {
         created_at TIMESTAMPTZ DEFAULT NOW()
       );
     `);
-    console.log("📦 Tabla 'whatsapp_messages' lista en PostgreSQL.");
+
+    // Asegurar columna sender
+    await pool.query(`
+      ALTER TABLE whatsapp_messages
+      ADD COLUMN IF NOT EXISTS sender VARCHAR(20) DEFAULT 'customer';
+    `);
+
+    console.log("📦 Tabla 'whatsapp_messages' lista en PostgreSQL (con sender).");
   } catch (err) {
-    console.error("❌ Error creando tabla:", err);
+    console.error("❌ Error creando/actualizando tabla:", err);
   }
 }
 initDB();
@@ -79,7 +87,7 @@ app.get("/messages/:phone", async (req, res) => {
 
     const result = await pool.query(
       `
-      SELECT id, phone, message, created_at
+      SELECT id, phone, message, sender, created_at
       FROM whatsapp_messages
       WHERE phone = $1
       ORDER BY created_at ASC;
@@ -90,7 +98,7 @@ app.get("/messages/:phone", async (req, res) => {
     res.json({
       status: "success",
       total: result.rows.length,
-      data: result.rows, // [{ id, phone, message, created_at }, ...]
+      data: result.rows, // [{ id, phone, message, sender, created_at }, ...]
     });
   } catch (error) {
     console.error("❌ Error obteniendo mensajes:", error);
@@ -118,9 +126,9 @@ app.post("/messages/send", async (req, res) => {
 
     const result = await pool.query(
       `
-      INSERT INTO whatsapp_messages (phone, message)
-      VALUES ($1, $2)
-      RETURNING id, phone, message, created_at;
+      INSERT INTO whatsapp_messages (phone, message, sender)
+      VALUES ($1, $2, 'agent')
+      RETURNING id, phone, message, sender, created_at;
     `,
       [phone, message]
     );
@@ -140,6 +148,7 @@ app.post("/messages/send", async (req, res) => {
 
 // ================================
 // 4) WEBHOOK N8N → GUARDA MENSAJES
+//    (mensajes que vienen de WhatsApp)
 // ================================
 app.post("/webhook/whatsapp", async (req, res) => {
   try {
@@ -153,7 +162,7 @@ app.post("/webhook/whatsapp", async (req, res) => {
     }
 
     await pool.query(
-      "INSERT INTO whatsapp_messages (phone, message) VALUES ($1, $2)",
+      "INSERT INTO whatsapp_messages (phone, message, sender) VALUES ($1, $2, 'customer')",
       [phone, message]
     );
 
@@ -167,6 +176,11 @@ app.post("/webhook/whatsapp", async (req, res) => {
 // ================================
 // PUERTO PARA RENDER
 // ================================
+const PORT = process.env.PORT || 10000;
+app.listen(PORT, () => {
+  console.log(`🔥 Nexus backend escuchando en el puerto ${PORT}`);
+});
+
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
   console.log(`🔥 Nexus backend escuchando en el puerto ${PORT}`);
