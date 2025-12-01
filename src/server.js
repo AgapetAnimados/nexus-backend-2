@@ -103,7 +103,7 @@ app.get("/messages/:phone", async (req, res) => {
 
 // ================================
 // 3) ENVIAR MENSAJE DESDE NEXUS
-//    (opcional, para cuando quieras responder)
+//    (cuando el agente escribe)
 // ================================
 app.post("/messages/send", async (req, res) => {
   try {
