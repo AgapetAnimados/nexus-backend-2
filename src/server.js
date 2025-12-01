@@ -19,21 +19,27 @@ const pool = new Pool({
 // Crear tabla
 async function initDB() {
   try {
+    // 1. Crear tabla si no existe
     await pool.query(`
       CREATE TABLE IF NOT EXISTS whatsapp_messages (
         id SERIAL PRIMARY KEY,
         phone VARCHAR(30) NOT NULL,
-        sender VARCHAR(20) DEFAULT 'customer',
         message TEXT NOT NULL,
+        sender VARCHAR(20),
+        conversation_id VARCHAR(50),
         created_at TIMESTAMPTZ DEFAULT NOW()
       );
     `);
-    console.log("📦 Tabla lista en PostgreSQL");
+
+    // 2. Asegurar columnas nuevas si la tabla ya existía
+    await pool.query(`ALTER TABLE whatsapp_messages ADD COLUMN IF NOT EXISTS sender VARCHAR(20);`);
+    await pool.query(`ALTER TABLE whatsapp_messages ADD COLUMN IF NOT EXISTS conversation_id VARCHAR(50);`);
+
+    console.log("📦 Tabla 'whatsapp_messages' lista y actualizada.");
   } catch (err) {
-    console.error("❌ Error creando tabla:", err);
+    console.error("❌ Error creando/actualizando tabla:", err);
   }
 }
-initDB();
 
 // Rutas
 app.get("/", (req, res) => {
